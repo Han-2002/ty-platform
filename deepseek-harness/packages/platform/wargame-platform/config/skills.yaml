@@ -1,0 +1,46 @@
+# 技能编排配置（管理员维护）：启停、角色授权、技能包打包
+# 技能本体见 skills/<名称>/SKILL.md（业务人员维护）
+# 有效技能 = 引用(packs/skill_allow) ∩ 授权(allowed_roles) ∩ 启用(enabled) ∩ 密级门槛
+
+skills:
+  - name: wargame-organization
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: ooda-decision
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: plan-evaluation-matrix
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: ipb
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: after-action-review
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: multi-seat-coordination
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: plan-drafting
+    enabled: true
+    allowed_roles: [director, staff]
+  - name: situation-assessment
+    enabled: true
+    allowed_roles: [director, staff, support]
+  - name: task-decomposition
+    enabled: true
+    allowed_roles: [director, staff, support]
+
+packs:
+  core:
+    - wargame-organization
+    - ooda-decision
+    - plan-evaluation-matrix
+    - ipb
+    - after-action-review
+    - multi-seat-coordination
+    - plan-drafting
+    - situation-assessment
+  support:
+    - task-decomposition
+    - situation-assessment

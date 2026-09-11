@@ -1,0 +1,55 @@
+# 席位、角色、指挥链与活动配置
+# 扩席位/换活动：追加条目即可，无需改代码
+
+roles:
+  - id: director
+    name: 总导演
+    level: 1
+    clearance: 5
+    can_dispatch: true
+    can_approve: true
+    packs: [core]
+    description: 总导演席位，拥有最高密级与全部分派/审批权
+
+  - id: staff
+    name: 参谋
+    level: 2
+    clearance: 4
+    can_dispatch: true
+    can_approve: false
+    packs: [core]
+    description: 参谋席位，可分派但不可审批
+
+  - id: support
+    name: 保障
+    level: 3
+    clearance: 2
+    can_dispatch: false
+    can_approve: false
+    packs: [support]
+    description: 保障席位，仅执行基础作业类技能
+
+seats:
+  - id: seat-director
+    name: 总导演席
+    role: director
+    parent: null
+
+  - id: seat-staff-1
+    name: 参谋一席
+    role: staff
+    parent: seat-director
+
+  - id: seat-staff-2
+    name: 参谋二席
+    role: staff
+    parent: seat-director
+
+  - id: seat-support-1
+    name: 保障一席
+    role: support
+    parent: seat-staff-1
+
+activities:
+  - id: act-blue
+    name: 蓝军对抗演练

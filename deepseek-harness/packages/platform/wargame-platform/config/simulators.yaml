@@ -1,0 +1,18 @@
+# 仿真系统接入配置（MCP：JSON-RPC 2.0 over stdio）
+# 新增仿真系统：追加条目即可，无需改代码
+# command/args 为启动 MCP 服务端的命令，tool 为暴露的推演工具名，weight 为加权权重
+
+simulators:
+  - id: sim-red
+    name: 红方仿真引擎
+    command: node
+    args: ["./simulators/sim-red.mjs"]
+    tool: run_simulation
+    weight: 0.7
+
+  - id: sim-blue
+    name: 蓝方仿真引擎
+    command: node
+    args: ["./simulators/sim-blue.mjs"]
+    tool: run_simulation
+    weight: 0.3

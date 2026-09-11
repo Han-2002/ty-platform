@@ -1,0 +1,38 @@
+# 公共知识库文档（按角色密级差异化可见）
+# clearance: 可见所需最低密级；allow: 角色白名单(空=不额外限制)；deny: 角色黑名单(优先于 allow)
+
+documents:
+  - id: doc-org
+    title: 兵棋推演组织规范
+    clearance: 1
+    allow: []
+    deny: []
+    content: 兵棋推演的组织流程：成立推演组、明确席位分工、制定推演计划、组织预演与正式推演、汇总复盘。本规范为公开的方法论框架。
+
+  - id: doc-ooda
+    title: OODA 决策循环方法
+    clearance: 2
+    allow: []
+    deny: []
+    content: OODA 循环包含观察(Observe)、判断(Orient)、决策(Decide)、行动(Act)四个环节，强调以更快节奏打乱对手决策周期。公开决策方法论。
+
+  - id: doc-plan
+    title: 方案拟制基本流程
+    clearance: 3
+    allow: [director, staff]
+    deny: []
+    content: 方案拟制流程：明确任务、研判态势、提出候选方案、评估比较、择优上报。公开流程框架。
+
+  - id: doc-eval
+    title: 方案评估矩阵方法
+    clearance: 4
+    allow: [director, staff]
+    deny: []
+    content: 多准则决策矩阵用于方案评估：确定评估准则、赋予权重、逐方案打分、加权汇总排序。公开评估方法论。
+
+  - id: doc-secret
+    title: 推演核心参数与预置态势
+    clearance: 5
+    allow: [director]
+    deny: []
+    content: 本次推演的核心参数、预置态势与红方初始部署的敏感信息，仅总导演可见。
