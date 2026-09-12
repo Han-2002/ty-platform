@@ -80,7 +80,34 @@ export class TaskGroupManager {
     return [...this.groups.values()].filter((g) => g.activityId === activityId);
   }
 
-  // 层级组：只有组长能够向本组成员下发子任务。
+  allGroups(): TaskGroup[] {
+    return [...this.groups.values()].map((g) => ({
+      ...g,
+      memberSeatIds: [...g.memberSeatIds],
+    }));
+  }
+
+  // 仅用于数据库恢复。
+  restoreGroup(group: TaskGroup): void {
+    this.org.getActivity(group.activityId);
+    for (const seatId of group.memberSeatIds) this.org.getSeat(seatId);
+    if (group.mode === 'hierarchical') {
+      if (!group.leaderSeatId || !group.memberSeatIds.includes(group.leaderSeatId)) {
+        throw new Error(`恢复层级组失败：leader 无效 ${group.id}`);
+      }
+    }
+    this.groups.set(group.id, {
+      ...group,
+      memberSeatIds: [...group.memberSeatIds],
+    });
+  }
+
+  clearForRestore(): void {
+    this.groups.clear();
+    this.peerDecisions.clear();
+    this.plans.clear();
+  }
+
   dispatchHierarchicalTask(
     groupId: string,
     bySeatId: string,
@@ -98,8 +125,6 @@ export class TaskGroupManager {
     return this.tasks.dispatchInGroup(input, targetSeatId, group.id);
   }
 
-  // 平级组：协商结束后，将“协商分工结果”写入真实 Task。
-  // V1 不在这里实现 LLM 协商本身；Runtime 后续调用此接口落地协商结果。
   recordPeerAssignment(
     groupId: string,
     bySeatId: string,
@@ -115,7 +140,6 @@ export class TaskGroupManager {
     return this.tasks.dispatchInGroup(input, targetSeatId, group.id);
   }
 
-  // 平级组形成群体决策记录。最终方案提交前必须先有该记录。
   confirmPeerDecision(
     groupId: string,
     bySeatId: string,
@@ -145,8 +169,6 @@ export class TaskGroupManager {
     return this.peerDecisions.get(groupId);
   }
 
-  // 每个任务组最终形成自己的方案。
-  // 层级组由 leader 提交；平级组需先有群体决策记录，再由任一组员提交。
   submitGroupPlan(
     groupId: string,
     bySeatId: string,

@@ -138,6 +138,47 @@ export class WorkflowManager {
     return id ? this.workflows.get(id) : undefined;
   }
 
+  allWorkflows(): WorkflowInstance[] {
+    return [...this.workflows.values()].map((w) => ({
+      ...w,
+      steps: w.steps.map((s) => ({ ...s })),
+    }));
+  }
+
+  allProposals(): WorkflowChangeProposal[] {
+    return [...this.proposals.values()].map((p) => ({
+      ...p,
+      change: { ...p.change },
+    }));
+  }
+
+  restoreWorkflow(workflow: WorkflowInstance): void {
+    const group = this.groups.getGroup(workflow.groupId);
+    if (group.activityId !== workflow.activityId) {
+      throw new Error(`恢复工作流失败：activityId 与任务组不一致 ${workflow.id}`);
+    }
+    this.workflows.set(workflow.id, {
+      ...workflow,
+      steps: workflow.steps.map((s) => ({ ...s })),
+    });
+    this.workflowByGroup.set(workflow.groupId, workflow.id);
+  }
+
+  restoreProposal(proposal: WorkflowChangeProposal): void {
+    this.getWorkflow(proposal.workflowId);
+    this.proposals.set(proposal.id, {
+      ...proposal,
+      change: { ...proposal.change },
+    });
+  }
+
+  clearForRestore(): void {
+    this.workflows.clear();
+    this.workflowByGroup.clear();
+    this.proposals.clear();
+    this.log.length = 0;
+  }
+
   currentStep(workflowId: string): WorkflowStep | undefined {
     return this.getWorkflow(workflowId).steps.find((s) => s.status === 'active');
   }
@@ -146,13 +187,13 @@ export class WorkflowManager {
     const workflow = this.getWorkflow(workflowId);
     if (workflow.status === 'completed') throw new Error('工作流已完成');
 
-    const step = this.currentStep(workflowId);
-    if (!step) throw new Error('工作流没有活动步骤');
+    const current = this.currentStep(workflowId);
+    if (!current) throw new Error('工作流没有活动步骤');
 
-    this.assertCanAct(workflow, step, bySeatId);
+    this.assertCanAct(workflow, current, bySeatId);
 
-    step.status = 'completed';
-    this.pushLog(workflow.id, bySeatId, 'complete_step', `完成步骤 ${step.key}`);
+    current.status = 'completed';
+    this.pushLog(workflow.id, bySeatId, 'complete_step', `完成步骤 ${current.key}`);
 
     const next = workflow.steps.find((s) => s.status === 'pending');
     if (next) {
@@ -247,7 +288,7 @@ export class WorkflowManager {
 
   private assertCanAct(
     workflow: WorkflowInstance,
-    step: WorkflowStep,
+    stepObj: WorkflowStep,
     bySeatId: string,
   ): void {
     const group = this.groups.getGroup(workflow.groupId);
@@ -255,18 +296,16 @@ export class WorkflowManager {
       throw new PermissionDenied(`席位 ${bySeatId} 不属于任务组 ${group.id}`);
     }
 
-    if (step.actorRule === 'leader') {
+    if (stepObj.actorRule === 'leader') {
       if (group.mode !== 'hierarchical' || group.leaderSeatId !== bySeatId) {
-        throw new PermissionDenied(`步骤 ${step.key} 只能由层级组 leader 执行`);
+        throw new PermissionDenied(`步骤 ${stepObj.key} 只能由层级组 leader 执行`);
       }
       return;
     }
 
-    if (step.actorRule === 'member') {
-      // 层级组的 member 步骤不允许 leader 代替成员执行；
-      // 平级组所有人都是 member。
+    if (stepObj.actorRule === 'member') {
       if (group.mode === 'hierarchical' && group.leaderSeatId === bySeatId) {
-        throw new PermissionDenied(`步骤 ${step.key} 需要普通组员执行`);
+        throw new PermissionDenied(`步骤 ${stepObj.key} 需要普通组员执行`);
       }
       return;
     }
@@ -297,7 +336,6 @@ export class WorkflowManager {
       );
       workflow.steps.splice(index + 1, 0, inserted);
 
-      // 若工作流原本已经完成，则让新增步骤成为当前步骤。
       if (workflow.status === 'completed') {
         workflow.status = 'running';
         inserted.status = 'active';

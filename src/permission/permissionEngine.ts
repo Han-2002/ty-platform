@@ -60,9 +60,7 @@ const APPROVAL_ACTIONS = new Set<PermissionAction>([
   'seat.assign',
 ]);
 
-const DISPATCH_ACTIONS = new Set<PermissionAction>([
-  'task.dispatch',
-]);
+const DISPATCH_ACTIONS = new Set<PermissionAction>(['task.dispatch']);
 
 export class PermissionEngine {
   private readonly grants = new Map<string, TemporaryGrant>();
@@ -197,10 +195,7 @@ export class PermissionEngine {
     }
 
     this.userSeats.context(grant.userId, grant.seatId, grant.activityId);
-
-    if (grant.expiresAt <= Date.now()) {
-      throw new Error('临时授权过期时间必须晚于当前时间');
-    }
+    if (grant.expiresAt <= Date.now()) throw new Error('临时授权过期时间必须晚于当前时间');
 
     const created: TemporaryGrant = {
       ...grant,
@@ -265,11 +260,20 @@ export class PermissionEngine {
     return grant;
   }
 
-  activeGrantsFor(
-    userId: string,
-    seatId: string,
-    activityId: string,
-  ): TemporaryGrant[] {
+  allGrants(): TemporaryGrant[] {
+    return [...this.grants.values()].map((g) => ({ ...g }));
+  }
+
+  restoreGrant(grant: TemporaryGrant): void {
+    this.userSeats.context(grant.userId, grant.seatId, grant.activityId);
+    this.grants.set(grant.id, { ...grant });
+  }
+
+  clearGrantsForRestore(): void {
+    this.grants.clear();
+  }
+
+  activeGrantsFor(userId: string, seatId: string, activityId: string): TemporaryGrant[] {
     const now = Date.now();
     return [...this.grants.values()].filter(
       (g) =>

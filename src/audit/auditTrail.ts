@@ -35,9 +35,6 @@ function hashRecord(record: Omit<AuditRecord, 'hash'>): string {
   return createHash('sha256').update(stable(record)).digest('hex');
 }
 
-// V1 为内存态 append-only 审计链。
-// 每条记录包含上一条 hash，可检测被篡改/删除/重排。
-// 后续持久化时可原样落 PostgreSQL / 日志系统。
 export class AuditTrail {
   private readonly records: AuditRecord[] = [];
 
@@ -61,6 +58,25 @@ export class AuditTrail {
       ...r,
       metadata: r.metadata ? { ...r.metadata } : undefined,
     }));
+  }
+
+  restoreRecords(records: AuditRecord[]): void {
+    const sorted = [...records].sort((a, b) => a.sequence - b.sequence);
+    this.records.length = 0;
+    for (const record of sorted) {
+      this.records.push({
+        ...record,
+        metadata: record.metadata ? { ...record.metadata } : undefined,
+      });
+    }
+    if (!this.verifyIntegrity()) {
+      this.records.length = 0;
+      throw new Error('数据库中的审计 hash 链完整性校验失败');
+    }
+  }
+
+  clearForRestore(): void {
+    this.records.length = 0;
   }
 
   query(filter: {

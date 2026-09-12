@@ -115,9 +115,6 @@ export class SimulationService {
       r.rank = i + 1;
     });
     this.results = results;
-
-    // 系统推荐第一名。为了兼容旧接口，默认 selectedPlan 仍指向推荐项；
-    // 但人工可以在确认前通过 selectPlan() 改选任意候选方案。
     this.recommendedPlanId = results[0]?.plan.plan_id;
     this.selectedPlanId = this.recommendedPlanId;
     this.confirmed = false;
@@ -136,7 +133,6 @@ export class SimulationService {
     return this.results.find((r) => r.plan.plan_id === this.selectedPlanId);
   }
 
-  // 人工可不接受系统第一名，明确改选另一套候选方案。
   selectPlan(planId: string): PlanRunResult {
     const found = this.results.find((r) => r.plan.plan_id === planId);
     if (!found) throw new Error(`候选方案不存在于本轮仿真结果: ${planId}`);
@@ -159,6 +155,37 @@ export class SimulationService {
       throw new Error('择优方案尚未经人工确认，禁止下发执行');
     }
     return { plan: this.selectedPlan()!.plan };
+  }
+
+  restoreState(
+    results: PlanRunResult[],
+    recommendedPlanId?: string,
+    selectedPlanId?: string,
+    confirmed = false,
+  ): void {
+    this.results = results.map((r) => ({
+      ...r,
+      plan: { ...r.plan },
+      outcomes: r.outcomes.map((o) => ({
+        ...o,
+        result: o.result
+          ? {
+              ...o.result,
+              metrics: { ...o.result.metrics },
+            }
+          : undefined,
+      })),
+    }));
+    this.recommendedPlanId = recommendedPlanId;
+    this.selectedPlanId = selectedPlanId ?? recommendedPlanId;
+    this.confirmed = confirmed;
+  }
+
+  clearRestoredState(): void {
+    this.results = [];
+    this.recommendedPlanId = undefined;
+    this.selectedPlanId = undefined;
+    this.confirmed = false;
   }
 
   report(): string {

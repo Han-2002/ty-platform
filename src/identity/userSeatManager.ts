@@ -53,6 +53,10 @@ export class UserSeatManager {
     return user;
   }
 
+  allUsers(): UserProfile[] {
+    return [...this.users.values()].map((u) => ({ ...u }));
+  }
+
   disableUser(userId: string): UserProfile {
     const user = this.getUser(userId);
     user.status = 'disabled';
@@ -115,6 +119,10 @@ export class UserSeatManager {
     return assignment;
   }
 
+  allAssignments(): SeatAssignment[] {
+    return [...this.assignments.values()].map((a) => ({ ...a }));
+  }
+
   activeAssignment(userId: string, seatId: string, activityId: string): SeatAssignment | undefined {
     return [...this.assignments.values()].find(
       (x) =>
@@ -133,8 +141,42 @@ export class UserSeatManager {
     return [...this.assignments.values()].filter((x) => x.userId === userId);
   }
 
-  // 提供给 Runtime / Permission / Audit 的最小业务上下文。
-  // Runtime 不需要自己推断“我是谁、代表哪个席位、处于哪个活动”。
+  // 仅供持久化恢复使用：不重复执行业务创建逻辑，但仍校验关键引用。
+  restoreUser(user: UserProfile): void {
+    if (this.users.has(user.id)) return;
+    this.users.set(user.id, { ...user });
+  }
+
+  // 仅供持久化恢复使用。
+  restoreAssignment(assignment: SeatAssignment): void {
+    this.org.getSeat(assignment.seatId);
+    this.org.getActivity(assignment.activityId);
+    if (!this.users.has(assignment.userId)) {
+      throw new Error(`恢复席位编配失败：用户不存在 ${assignment.userId}`);
+    }
+
+    if (assignment.active) {
+      const occupied = [...this.assignments.values()].find(
+        (x) =>
+          x.active &&
+          x.activityId === assignment.activityId &&
+          x.seatId === assignment.seatId &&
+          x.id !== assignment.id,
+      );
+      if (occupied) {
+        throw new Error(
+          `恢复席位编配冲突：活动 ${assignment.activityId} 中席位 ${assignment.seatId} 已被占用`,
+        );
+      }
+    }
+    this.assignments.set(assignment.id, { ...assignment });
+  }
+
+  clearForRestore(): void {
+    this.users.clear();
+    this.assignments.clear();
+  }
+
   context(userId: string, seatId: string, activityId: string): BusinessContext {
     const assignment = this.activeAssignment(userId, seatId, activityId);
     if (!assignment) {
