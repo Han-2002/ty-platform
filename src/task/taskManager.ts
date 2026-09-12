@@ -39,7 +39,6 @@ export class TaskManager {
     };
   }
 
-  // 按技能与密级筛选可用席位
   capableSeats(requiredSkills: string[], requiredClearance: number): Seat[] {
     return this.org.allSeats().filter((seat) => {
       if (seat.clearance < requiredClearance) return false;
@@ -48,7 +47,7 @@ export class TaskManager {
     });
   }
 
-  private createTask(input: TaskInput, assignedSeatId: string): Task {
+  private createTask(input: TaskInput, assignedSeatId: string, groupId?: string): Task {
     const task: Task = {
       id: randomUUID(),
       activityId: input.activityId,
@@ -56,6 +55,7 @@ export class TaskManager {
       requiredSkills: [...input.requiredSkills],
       requiredClearance: input.requiredClearance,
       assignedSeatId,
+      groupId,
       status: 'executing',
     };
     this.tasks.set(task.id, task);
@@ -63,7 +63,6 @@ export class TaskManager {
     return task;
   }
 
-  // 自动分派：能力 + 负载（低负载优先）
   autoDispatch(input: TaskInput): Task {
     const capable = this.capableSeats(input.requiredSkills, input.requiredClearance);
     if (capable.length === 0) throw new Error('无满足能力与密级要求的可用席位');
@@ -71,17 +70,26 @@ export class TaskManager {
     return this.createTask(input, capable[0].id);
   }
 
-  // 手动分派：校验分派席位具备 can_dispatch
   dispatch(bySeatId: string, input: TaskInput, targetSeatId: string): Task {
     const bySeat = this.org.getSeat(bySeatId);
     if (!bySeat.can_dispatch) {
       throw new PermissionDenied(`席位 ${bySeatId} 无分派权，任务未创建`);
     }
+    this.assertCapable(targetSeatId, input);
+    return this.createTask(input, targetSeatId);
+  }
+
+  // 供 TaskGroupManager 使用：完成任务组权限校验后，创建带 groupId 的真实 Task。
+  dispatchInGroup(input: TaskInput, targetSeatId: string, groupId: string): Task {
+    this.assertCapable(targetSeatId, input);
+    return this.createTask(input, targetSeatId, groupId);
+  }
+
+  private assertCapable(targetSeatId: string, input: TaskInput): void {
     const capable = this.capableSeats(input.requiredSkills, input.requiredClearance);
     if (!capable.some((s) => s.id === targetSeatId)) {
       throw new Error(`席位 ${targetSeatId} 不具备该任务所需能力或密级`);
     }
-    return this.createTask(input, targetSeatId);
   }
 
   getTask(taskId: string): Task {
@@ -90,7 +98,6 @@ export class TaskManager {
     return t;
   }
 
-  // 席位提交产出：默认挂起待审
   submitOutput(taskId: string, seatId: string, content: string): Output {
     const task = this.getTask(taskId);
     if (task.assignedSeatId !== seatId) {
@@ -116,7 +123,6 @@ export class TaskManager {
     return o;
   }
 
-  // 审批通过：校验 can_approve
   approve(bySeatId: string, outputId: string): Output {
     const bySeat = this.org.getSeat(bySeatId);
     if (!bySeat.can_approve) {
@@ -127,7 +133,6 @@ export class TaskManager {
     return output;
   }
 
-  // 审批打回：退回给提交席位，不进入完成
   reject(bySeatId: string, outputId: string): Output {
     const bySeat = this.org.getSeat(bySeatId);
     if (!bySeat.can_approve) {
@@ -138,7 +143,6 @@ export class TaskManager {
     return output;
   }
 
-  // 记录人类反馈（Good/Bad），供自进化读取
   recordFeedback(outputId: string, rating: 'good' | 'bad', note?: string): FeedbackRecord {
     const output = this.getOutput(outputId);
     const rec: FeedbackRecord = { outputId, seatId: output.seatId, rating, note, at: Date.now() };
@@ -151,14 +155,16 @@ export class TaskManager {
     return [...this.feedbackLog];
   }
 
-  // 待审队列
   pendingOutputs(): Output[] {
     return [...this.outputs.values()].filter((o) => o.status === 'waiting_approval');
   }
 
-  // 活动作用域：某活动下的任务
   tasksForActivity(activityId: string): Task[] {
     return [...this.tasks.values()].filter((t) => t.activityId === activityId);
+  }
+
+  tasksForGroup(groupId: string): Task[] {
+    return [...this.tasks.values()].filter((t) => t.groupId === groupId);
   }
 
   loadOf(seatId: string): number {

@@ -67,8 +67,8 @@ export interface KnowledgeDocument {
   title: string;
   content: string;
   clearance: number;
-  allow: string[]; // 角色白名单；为空表示不额外限制
-  deny: string[]; // 角色黑名单；优先级高于 allow
+  allow: string[];
+  deny: string[];
 }
 
 // ---------- 消息与会话 ----------
@@ -79,11 +79,11 @@ export interface Message {
   id: string;
   conversationId: string;
   type: MessageType;
-  from: string; // 席位 id
+  from: string;
   content: string;
-  mentions: string[]; // 被 @ 提及的席位 id
+  mentions: string[];
   timestamp: number;
-  parentMessageId?: string; // 分支会话的源消息
+  parentMessageId?: string;
 }
 
 export type ConversationType = 'group' | 'direct';
@@ -91,9 +91,49 @@ export type ConversationType = 'group' | 'direct';
 export interface Conversation {
   id: string;
   type: ConversationType;
-  members: string[]; // 席位 id
+  members: string[];
   activityId: string;
-  branchFrom?: string; // 分支自哪条消息
+  branchFrom?: string;
+}
+
+// ---------- 任务组 ----------
+
+// 任务组是“针对某个任务临时形成的协作组织”，与 Seat.parent 指挥链分开。
+export type TaskGroupMode = 'hierarchical' | 'peer';
+export type PeerDecisionMode = 'vote' | 'score' | 'negotiation';
+export type TaskGroupStatus = 'forming' | 'executing' | 'plan_submitted' | 'completed';
+
+export interface TaskGroup {
+  id: string;
+  activityId: string;
+  name: string;
+  mode: TaskGroupMode;
+  memberSeatIds: string[];
+  leaderSeatId?: string;
+  peerDecisionMode?: PeerDecisionMode;
+  status: TaskGroupStatus;
+  createdAt: number;
+}
+
+export interface PeerDecisionRecord {
+  groupId: string;
+  mode: PeerDecisionMode;
+  summary: string;
+  confirmedBySeatIds: string[];
+  createdAt: number;
+}
+
+export type GroupPlanStatus = 'submitted' | 'approved' | 'rejected';
+
+export interface GroupPlan {
+  id: string;
+  activityId: string;
+  groupId: string;
+  name: string;
+  content: string;
+  submittedBySeatId: string;
+  status: GroupPlanStatus;
+  createdAt: number;
 }
 
 // ---------- 任务与产出 ----------
@@ -116,6 +156,7 @@ export interface Task {
   requiredSkills: string[];
   requiredClearance: number;
   assignedSeatId?: string;
+  groupId?: string;
   status: 'pending' | 'executing' | 'done';
   output?: Output;
 }
@@ -136,6 +177,7 @@ export interface Plan {
   plan_name: string;
   plan_content: string;
   seatId: string;
+  groupId?: string;
 }
 
 // ---------- 记忆 ----------

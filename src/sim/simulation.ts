@@ -15,7 +15,6 @@ export interface PlanRunResult {
   rank?: number;
 }
 
-// 权重归一化加权：仅对成功系统做 sum(score_i * w_i) / sum(w_i)
 export function weightedAggregate(
   outcomes: SimRunOutcome[],
   configs: SimulatorConfig[],
@@ -42,7 +41,6 @@ export interface PlanGenerator {
   generate: (topic: string) => Promise<string>;
 }
 
-// 多套候选方案并发生成：总耗时≈最慢单席
 export async function generatePlansConcurrently(
   generators: PlanGenerator[],
   topic: string,
@@ -66,7 +64,6 @@ export class SimulationRunner {
     private readonly timeoutMs = 5000,
   ) {}
 
-  // 单套方案在多套仿真系统上并发推演；单个系统失败不中断整体
   async runPlan(plan: Plan): Promise<SimRunOutcome[]> {
     return Promise.all(this.configs.map((cfg) => this.runOne(cfg, plan)));
   }
@@ -100,11 +97,11 @@ export class SimulationRunner {
 export class SimulationService {
   private results: PlanRunResult[] = [];
   private selectedPlanId?: string;
+  private recommendedPlanId?: string;
   private confirmed = false;
 
   constructor(private readonly runner: SimulationRunner) {}
 
-  // 多套方案并发推演 → 加权汇总 → 择优排序
   async evaluatePlans(plans: Plan[]): Promise<PlanRunResult[]> {
     const results: PlanRunResult[] = await Promise.all(
       plans.map(async (plan): Promise<PlanRunResult> => {
@@ -118,7 +115,11 @@ export class SimulationService {
       r.rank = i + 1;
     });
     this.results = results;
-    this.selectedPlanId = results[0]?.plan.plan_id;
+
+    // 系统推荐第一名。为了兼容旧接口，默认 selectedPlan 仍指向推荐项；
+    // 但人工可以在确认前通过 selectPlan() 改选任意候选方案。
+    this.recommendedPlanId = results[0]?.plan.plan_id;
+    this.selectedPlanId = this.recommendedPlanId;
     this.confirmed = false;
     return results;
   }
@@ -127,21 +128,32 @@ export class SimulationService {
     return this.results;
   }
 
+  recommendedPlan(): PlanRunResult | undefined {
+    return this.results.find((r) => r.plan.plan_id === this.recommendedPlanId);
+  }
+
   selectedPlan(): PlanRunResult | undefined {
     return this.results.find((r) => r.plan.plan_id === this.selectedPlanId);
+  }
+
+  // 人工可不接受系统第一名，明确改选另一套候选方案。
+  selectPlan(planId: string): PlanRunResult {
+    const found = this.results.find((r) => r.plan.plan_id === planId);
+    if (!found) throw new Error(`候选方案不存在于本轮仿真结果: ${planId}`);
+    this.selectedPlanId = planId;
+    this.confirmed = false;
+    return found;
   }
 
   get isConfirmed(): boolean {
     return this.confirmed;
   }
 
-  // 人类确认择优方案
   confirmSelection(): void {
     if (!this.selectedPlanId) throw new Error('尚无择优方案可确认');
     this.confirmed = true;
   }
 
-  // 下发执行：未确认时禁止
   dispatchSelected(): { plan: Plan } {
     if (!this.selectedPlanId || !this.confirmed) {
       throw new Error('择优方案尚未经人工确认，禁止下发执行');
@@ -149,7 +161,6 @@ export class SimulationService {
     return { plan: this.selectedPlan()!.plan };
   }
 
-  // 输出对比报告
   report(): string {
     const lines: string[] = ['方案推演对比报告'];
     for (const r of this.results) {

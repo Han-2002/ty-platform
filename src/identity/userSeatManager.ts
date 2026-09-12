@@ -1,0 +1,160 @@
+import { randomUUID } from 'node:crypto';
+import { PermissionDenied } from '../errors.js';
+import type { Organization } from '../org/organization.js';
+
+export type UserStatus = 'active' | 'disabled';
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  status: UserStatus;
+  createdAt: number;
+}
+
+export interface SeatAssignment {
+  id: string;
+  userId: string;
+  seatId: string;
+  activityId: string;
+  active: boolean;
+  assignedAt: number;
+  releasedAt?: number;
+  assignedBySeatId: string;
+}
+
+export interface BusinessContext {
+  userId: string;
+  userName: string;
+  seatId: string;
+  seatName: string;
+  roleId: string;
+  activityId: string;
+  clearance: number;
+  canDispatch: boolean;
+  canApprove: boolean;
+}
+
+export class UserSeatManager {
+  private readonly users = new Map<string, UserProfile>();
+  private readonly assignments = new Map<string, SeatAssignment>();
+
+  constructor(private readonly org: Organization) {}
+
+  createUser(id: string, name: string): UserProfile {
+    if (this.users.has(id)) throw new Error(`用户已存在: ${id}`);
+    const user: UserProfile = { id, name, status: 'active', createdAt: Date.now() };
+    this.users.set(id, user);
+    return user;
+  }
+
+  getUser(userId: string): UserProfile {
+    const user = this.users.get(userId);
+    if (!user) throw new Error(`用户不存在: ${userId}`);
+    return user;
+  }
+
+  disableUser(userId: string): UserProfile {
+    const user = this.getUser(userId);
+    user.status = 'disabled';
+    return user;
+  }
+
+  assign(
+    bySeatId: string,
+    userId: string,
+    seatId: string,
+    activityId: string,
+  ): SeatAssignment {
+    const actor = this.org.getSeat(bySeatId);
+    if (!actor.can_dispatch && !actor.can_approve) {
+      throw new PermissionDenied(`席位 ${bySeatId} 无席位编配权限`);
+    }
+
+    const user = this.getUser(userId);
+    if (user.status !== 'active') throw new Error(`用户 ${userId} 已停用`);
+
+    this.org.getSeat(seatId);
+    this.org.getActivity(activityId);
+
+    const occupied = [...this.assignments.values()].find(
+      (x) => x.active && x.activityId === activityId && x.seatId === seatId,
+    );
+    if (occupied) {
+      throw new Error(`活动 ${activityId} 中席位 ${seatId} 已被用户 ${occupied.userId} 占用`);
+    }
+
+    const assignment: SeatAssignment = {
+      id: randomUUID(),
+      userId,
+      seatId,
+      activityId,
+      active: true,
+      assignedAt: Date.now(),
+      assignedBySeatId: bySeatId,
+    };
+    this.assignments.set(assignment.id, assignment);
+    return assignment;
+  }
+
+  release(bySeatId: string, assignmentId: string): SeatAssignment {
+    const actor = this.org.getSeat(bySeatId);
+    if (!actor.can_dispatch && !actor.can_approve) {
+      throw new PermissionDenied(`席位 ${bySeatId} 无席位编配权限`);
+    }
+
+    const assignment = this.getAssignment(assignmentId);
+    if (!assignment.active) return assignment;
+    assignment.active = false;
+    assignment.releasedAt = Date.now();
+    return assignment;
+  }
+
+  getAssignment(assignmentId: string): SeatAssignment {
+    const assignment = this.assignments.get(assignmentId);
+    if (!assignment) throw new Error(`席位编配记录不存在: ${assignmentId}`);
+    return assignment;
+  }
+
+  activeAssignment(userId: string, seatId: string, activityId: string): SeatAssignment | undefined {
+    return [...this.assignments.values()].find(
+      (x) =>
+        x.active &&
+        x.userId === userId &&
+        x.seatId === seatId &&
+        x.activityId === activityId,
+    );
+  }
+
+  assignmentsForActivity(activityId: string): SeatAssignment[] {
+    return [...this.assignments.values()].filter((x) => x.activityId === activityId);
+  }
+
+  assignmentsForUser(userId: string): SeatAssignment[] {
+    return [...this.assignments.values()].filter((x) => x.userId === userId);
+  }
+
+  // 提供给 Runtime / Permission / Audit 的最小业务上下文。
+  // Runtime 不需要自己推断“我是谁、代表哪个席位、处于哪个活动”。
+  context(userId: string, seatId: string, activityId: string): BusinessContext {
+    const assignment = this.activeAssignment(userId, seatId, activityId);
+    if (!assignment) {
+      throw new PermissionDenied(
+        `用户 ${userId} 当前未被授权在活动 ${activityId} 使用席位 ${seatId}`,
+      );
+    }
+
+    const user = this.getUser(userId);
+    const seat = this.org.getSeat(seatId);
+    return {
+      userId,
+      userName: user.name,
+      seatId,
+      seatName: seat.name,
+      roleId: seat.role.id,
+      activityId,
+      clearance: seat.clearance,
+      canDispatch: seat.can_dispatch,
+      canApprove: seat.can_approve,
+    };
+  }
+}
