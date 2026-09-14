@@ -1,39 +1,94 @@
 html, body, #root {
   margin: 0;
   padding: 0;
-  font-family: Consolas, "Microsoft YaHei", monospace;
-  font-size: 15px;
+  height: 100%;
+  font-family: "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
   line-height: 1.55;
   background: #fff;
-  color: #111;
+  color: #1f2329;
 }
-main {
-  max-width: 1100px;
-  margin: 20px auto;
-  padding: 0 16px 50px;
+
+/* ---------- login ---------- */
+
+.loginPage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f6f8;
 }
-h1, h2 { font-weight: 600; }
-h2 { font-size: 18px; margin-bottom: 8px; }
-input, select, button, textarea {
-  font: inherit;
-  margin: 3px;
-  padding: 3px 6px;
+
+.loginCard {
+  width: 320px;
+  padding: 28px 24px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.wide { width: 70%; }
-.messages {
-  border: 1px solid #aaa;
-  min-height: 180px;
-  max-height: 360px;
-  overflow: auto;
-  padding: 8px;
-  margin: 8px 0;
-  white-space: pre-wrap;
+
+.loginTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
 }
-.block {
-  border-left: 3px solid #aaa;
-  padding-left: 10px;
-  margin: 10px 0;
+
+.loginHint {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
 }
-pre {
-  white-space: pre-wrap;
+
+.loginField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.loginField input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  color: #1f2329;
+  outline: none;
+}
+
+.loginField input:focus {
+  border-color: #2563eb;
+}
+
+.loginError {
+  margin: 0;
+  color: #dc2626;
+  font-size: 12px;
+}
+
+.loginSubmit {
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.loginSubmit:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.loginSubmit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
