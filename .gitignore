@@ -1,5 +1,9 @@
 node_modules/
-runtime/
 dist/
 *.log
 .DS_Store
+
+# 运行时数据目录（EvolutionEngine 固化/进化产物，运行时生成，不入库）
+# 注意：不要写成裸的 `runtime/`，否则会连带忽略 src/runtime/ 这类源码目录
+/runtime/
+deepseek-harness/packages/platform/wargame-platform/runtime/
