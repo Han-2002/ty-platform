@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+﻿import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { PermissionDenied } from '../errors.js';
@@ -37,7 +37,8 @@ async function businessActor(req: IncomingMessage, ctx: ServerContext) {
     throw new Error('缺少业务上下文请求头：x-seat-id / x-activity-id');
   }
 
-  // 关键：userId 只来自服务器 Session，不再信任客户端 x-user-id。
+  // 普通用户仍必须具有真实席位编配。
+  // admin 作为推演控制台管理员，可在当前活动中代理合法席位。
   ctx.identities.context(principal.userId, seatId, activityId);
 
   return {
@@ -141,6 +142,93 @@ export async function startApiServer(
           auth: 'enabled',
           websocketClients: hub.clientCount,
           timestamp: Date.now(),
+        });
+      }
+
+
+      // ---------- Demo seat login ----------
+      // Only enabled when DEMO_SEAT_LOGIN=1.
+      if (req.method === 'GET' && path === '/api/demo-login/options') {
+        if (process.env.DEMO_SEAT_LOGIN !== '1') return notFound(res);
+
+        const options = ctx.identities
+          .allAssignments()
+          .filter((a) => a.active)
+          .map((a) => {
+            const user = ctx.identities.getUser(a.userId);
+            const seat = ctx.org.getSeat(a.seatId);
+            const activity = ctx.org.getActivity(a.activityId);
+            return {
+              assignmentId: a.id,
+              userId: a.userId,
+              userName: user.name,
+              activityId: a.activityId,
+              activityName: activity.name,
+              seatId: a.seatId,
+              seatName: seat.name,
+              roleId: seat.role.id,
+              roleName: seat.role.name,
+              clearance: seat.clearance,
+              canDispatch: seat.can_dispatch,
+              canApprove: seat.can_approve,
+            };
+          })
+          .sort((a, b) =>
+            a.activityName.localeCompare(b.activityName, 'zh-CN') ||
+            a.seatName.localeCompare(b.seatName, 'zh-CN')
+          );
+
+        return ok(res, options);
+      }
+
+      if (req.method === 'POST' && path === '/api/demo-login') {
+        if (process.env.DEMO_SEAT_LOGIN !== '1') return notFound(res);
+
+        const data = await body<{ activityId: string; seatId: string }>(req);
+        if (!data.activityId || !data.seatId) {
+          throw new Error('activityId 和 seatId 必填');
+        }
+
+        const assignment = ctx.identities
+          .allAssignments()
+          .find(
+            (a) =>
+              a.active &&
+              a.activityId === data.activityId &&
+              a.seatId === data.seatId,
+          );
+
+        if (!assignment) {
+          throw new Error(
+            `活动 ${data.activityId} 中没有可用席位编配 ${data.seatId}`,
+          );
+        }
+
+        const result = await ctx.auth.demoLogin(assignment.userId, {
+          userAgent: header(req, 'user-agent'),
+          ipAddress: req.socket.remoteAddress,
+        });
+
+        ctx.audit.append({
+          actorType: 'human',
+          activityId: assignment.activityId,
+          userId: assignment.userId,
+          seatId: assignment.seatId,
+          action: 'auth.demo-seat-login',
+          targetType: 'session',
+          targetId: result.sessionId,
+          result: 'success',
+          metadata: {
+            demo: true,
+            assignmentId: assignment.id,
+          },
+        });
+        await ctx.persistentAudit.flush();
+
+        return ok(res, {
+          ...result,
+          activityId: assignment.activityId,
+          seatId: assignment.seatId,
         });
       }
 
@@ -360,6 +448,28 @@ export async function startApiServer(
         return ok(res, activityId ? all.filter((w) => w.activityId === activityId) : all);
       }
 
+      if (req.method === 'GET' && path === '/api/workflow-proposals') {
+        const a = await businessActor(req, ctx);
+        const activityId = url.searchParams.get('activityId') ?? a.activityId;
+        if (activityId !== a.activityId) {
+          throw new Error('跨活动工作流申请查询被拒绝');
+        }
+
+        const workflowIds = new Set(
+          ctx.workflows
+            .allWorkflows()
+            .filter((w) => w.activityId === activityId)
+            .map((w) => w.id),
+        );
+
+        return ok(
+          res,
+          ctx.workflows
+            .allProposals()
+            .filter((p) => workflowIds.has(p.workflowId)),
+        );
+      }
+
       const groupWorkflowMatch = routeMatch(path, /^\/api\/task-groups\/([^/]+)\/workflow$/);
       if (req.method === 'POST' && groupWorkflowMatch) {
         const a = await businessActor(req, ctx);
@@ -464,6 +574,44 @@ export async function startApiServer(
           payload: { proposal: approved, workflow: ctx.workflows.getWorkflow(workflow.id) },
         });
         return ok(res, approved);
+      }
+
+      const rejectProposalMatch = routeMatch(
+        path,
+        /^\/api\/workflow-proposals\/([^/]+)\/reject$/,
+      );
+
+      if (req.method === 'POST' && rejectProposalMatch) {
+        const a = await businessActor(req, ctx);
+        const proposal = ctx.workflows.getProposal(rejectProposalMatch[1]);
+        const workflow = ctx.workflows.getWorkflow(proposal.workflowId);
+
+        if (workflow.activityId !== a.activityId) {
+          throw new Error('跨活动拒绝流程变更被拒绝');
+        }
+
+        const rejected = await ctx.persistentWorkflows.rejectChange(
+          a.seatId,
+          proposal.id,
+        );
+
+        await auditCommand(ctx, {
+          activityId: workflow.activityId,
+          userId: a.userId,
+          seatId: a.seatId,
+          action: 'workflow.change.reject',
+          targetType: 'workflow_change_proposal',
+          targetId: rejected.id,
+        });
+
+        hub.publish({
+          type: 'workflow.change.rejected',
+          at: Date.now(),
+          activityId: workflow.activityId,
+          payload: rejected,
+        });
+
+        return ok(res, rejected);
       }
 
       // ---------- Temporary grants ----------
@@ -764,3 +912,6 @@ export async function startApiServer(
     },
   };
 }
+
+
+

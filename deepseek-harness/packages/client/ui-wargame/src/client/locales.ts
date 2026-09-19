@@ -1,6 +1,5 @@
-/** `wargame` namespace dictionaries: the wargaming console copy. */
+﻿/** `wargame` namespace dictionaries: the wargaming console copy. */
 
-/** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
   'menu.trigger': '推演控制台',
   'menu.trigger.short': '推',
@@ -10,12 +9,16 @@ export const zh = {
   'module.conversations': '会话列表',
   'module.seats': '席位集群',
   'module.messages': '协同消息流',
+  'module.taskGroups': '任务组',
+  'module.workflows': '工作流',
   'module.approvals': '人工审核队列',
+  'module.permissions': '权限 / 临时授权',
   'module.plans': '方案推演对比',
   'module.knowledge': '知识库权限',
   'module.skills': 'Skill 管理',
   'module.mcp': 'MCP 服务管理',
   'module.trajectory': '执行轨迹',
+  'module.audit': '审计复盘',
   'module.metrics': '运行时指标',
   'activity.placeholder': '请选择活动',
   'activity.composer.placeholder': '输入指令…',
@@ -60,13 +63,9 @@ export const zh = {
   'metric.context': '上下文占用',
 } satisfies Record<string, string>
 
-/** The wargame namespace key union. */
 export type WargameKey = keyof typeof zh
-
-/** The translate seat the module views receive. */
 export type WargameT = (key: WargameKey) => string
 
-/** English dictionary, checked complete against the zh key set. */
 export const en = {
   'menu.trigger': 'Wargame Console',
   'menu.trigger.short': 'War',
@@ -79,12 +78,16 @@ export const en = {
   'module.conversations': 'Conversations',
   'module.seats': 'Seat Cluster',
   'module.messages': 'Message Stream',
+  'module.taskGroups': 'Task Groups',
+  'module.workflows': 'Workflow',
   'module.approvals': 'Approval Queue',
+  'module.permissions': 'Permissions / Grants',
   'module.plans': 'Plan Comparison',
   'module.knowledge': 'Knowledge Access',
   'module.skills': 'Skill Manager',
   'module.mcp': 'MCP Services',
   'module.trajectory': 'Trajectory',
+  'module.audit': 'Audit Review',
   'module.metrics': 'Runtime Metrics',
   'activity.placeholder': 'Select an activity',
   'activity.composer.placeholder': 'Type an instruction…',
@@ -125,3 +128,4 @@ export const en = {
   'metric.tokens': 'tokens',
   'metric.context': 'Context usage',
 } satisfies Record<WargameKey, string>
+

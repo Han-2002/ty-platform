@@ -138,6 +138,44 @@ export class AuthService {
     };
   }
 
+
+  /**
+   * Local demo only: issue a normal server session for a real assigned user.
+   */
+  async demoLogin(
+    userId: string,
+    metadata: LoginMetadata = {},
+  ): Promise<LoginResult> {
+    const token = randomBytes(32).toString('base64url');
+    const now = Date.now();
+    const sessionId = randomUUID();
+    const expiresAt = now + this.sessionTtlMs;
+
+    await this.repo.createSession({
+      id: sessionId,
+      userId,
+      tokenHash: tokenHash(token),
+      createdAt: now,
+      expiresAt,
+      lastSeenAt: now,
+      userAgent: metadata.userAgent,
+      ipAddress: metadata.ipAddress,
+    });
+
+    const session = await this.repo.getActiveSessionByTokenHash(tokenHash(token));
+    if (!session) {
+      throw new Error(`Demo Session 创建失败：用户 ${userId} 不存在或已停用`);
+    }
+
+    return {
+      token,
+      sessionId,
+      userId: session.userId,
+      userName: session.userName,
+      expiresAt,
+    };
+  }
+
   async authenticate(token: string): Promise<AuthPrincipal> {
     if (!token) throw new AuthenticationError('缺少登录凭证');
 

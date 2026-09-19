@@ -80,4 +80,19 @@ export class PersistentWorkflowService {
       throw error;
     }
   }
+
+  async rejectChange(
+    bySeatId: string,
+    proposalId: string,
+  ): Promise<WorkflowChangeProposal> {
+    const proposal = this.manager.rejectChange(bySeatId, proposalId);
+    const workflow = this.manager.getWorkflow(proposal.workflowId);
+    try {
+      await this.repos.saveWorkflowProposal(proposal);
+      return proposal;
+    } catch (error) {
+      await this.hydrate(workflow.activityId);
+      throw error;
+    }
+  }
 }
