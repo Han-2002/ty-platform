@@ -686,6 +686,7 @@ export async function startApiServer(
           name: data.name,
           kind: data.kind ?? 'group',
           memberSeatIds: data.memberSeatIds ?? [],
+          createdByUserId: a.userId,
           createdBySeatId: a.seatId,
         });
         await auditCommand(ctx, {
@@ -912,6 +913,7 @@ export async function startApiServer(
     },
   };
 }
+
 
 
 

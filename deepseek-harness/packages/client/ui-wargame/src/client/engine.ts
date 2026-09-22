@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The console engine: one `defineStore` that owns every cross-module fact
  * (seats, tasks, plans, skills, mcp, knowledge, etc.) and the shell state
  * (open / activeModule). State is persisted to localStorage so a refresh
@@ -206,13 +206,21 @@ export function createConsoleStore() {
       generatePlans: (d) => {
         const activeMcp = d.mcpServices.filter((m) => m.connected)
         if (activeMcp.length === 0) {
+          // 没有可用引擎时，旧方案不能继续留在界面上，
+          // 否则会误以为本次重新生成仍然得到了旧结果。
+          d.plans = []
           d.trajectorySeq += 1
-          d.trajectory.push({ step: d.trajectorySeq, action: '生成方案失败：无可用仿真引擎', at: Date.now() })
+          d.trajectory.push({
+            step: d.trajectorySeq,
+            action: '生成方案失败：无可用仿真引擎',
+            at: Date.now(),
+          })
           return
         }
+        const round = d.metrics.turns + 1
         const names = ['方案甲', '方案乙']
         d.plans = names.map((name, i) => {
-          const planId = `p${String(i + 1)}`
+          const planId = `p-round-${round}-${String(i + 1)}`
           const scores = activeMcp.map((m) => ({
             simulator: m.name,
             score: deterministicScore(`${planId}:${m.id}`, 40, 95),
@@ -220,7 +228,7 @@ export function createConsoleStore() {
           let num = 0
           let den = 0
           for (const s of scores) {
-            const m = activeMcp.find((x) => x.id === s.simulator)
+            const m = activeMcp.find((x) => x.name === s.simulator)
             if (m === undefined) continue
             num += s.score * m.weight
             den += m.weight
@@ -382,6 +390,12 @@ export const skillCatalog: { reload: () => Promise<void> } = {
   reload: async () => {},
 }
 
+export const knowledgeCatalog: {
+  reload: (roleId: string) => Promise<void>
+} = {
+  reload: async () => {},
+}
+
 /**
  * Bridge to the session-scoped composer draft: the session-scope entry
  * SkillInjectorSlot captures `inputActions.setDraft` into this reference, so
@@ -396,3 +410,6 @@ export function setAddSkillToDraft(fn: (name: string) => void): void {
 export function getAddSkillToDraft(): (name: string) => void {
   return addSkillToDraft
 }
+
+
+

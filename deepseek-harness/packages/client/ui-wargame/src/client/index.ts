@@ -1,4 +1,4 @@
-/** Wargaming console plugin, browser half. */
+﻿/** Wargaming console plugin, browser half. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -18,7 +18,7 @@ import { WargameOverlay } from './WargameOverlay.tsx'
 import { SkillAttachButton } from './views/SkillAttachButton.tsx'
 import { SkillInjectorSlot } from './views/SkillInjectorSlot.tsx'
 import {
-  createConsoleStore, skillCatalog, setConsoleActions, getConsoleActions,
+  createConsoleStore, skillCatalog, knowledgeCatalog, setConsoleActions, getConsoleActions,
   type ConsoleActions,
 } from './engine.ts'
 import { en, zh, type WargameKey } from './locales.ts'
@@ -42,29 +42,86 @@ export function apply(ctx: ClientContext): void {
   // overlay (the framework caches ONE root instance for this handle).
   const handle = createConsoleStore()
 
-  // Real skill directory: refresh the console's skill module from the host
-  // `skills/list` RPC for the current session.
+  // 推演技能目录：跟随当前登录席位角色加载。
   skillCatalog.reload = async () => {
-    const sessionId = ctx.sessions.list.getSnapshot().current
     const actions = getConsoleActions()
-    if (sessionId === undefined) {
-      actions.setRealSkills([])
-      return
-    }
+
     try {
-      const result = await ctx.remote.skills.list({ sessionId })
-      if (result.ok) {
-        actions.setRealSkills(result.value.skills.map((skill) => ({
+      const seatId =
+        sessionStorage.getItem(
+          'ty.harness.business.LOGIN_SEAT_V2',
+        )
+
+      if (!seatId) {
+        actions.setRealSkills([])
+        return
+      }
+
+      const seats =
+        await ctx.remote.wargame.listSeats()
+
+      if (!seats.ok) {
+        actions.setRealSkills([])
+        return
+      }
+
+      const seat =
+        seats.value.find(
+          (s) => s.id === seatId,
+        )
+
+      if (!seat) {
+        actions.setRealSkills([])
+        return
+      }
+
+      const result =
+        await ctx.remote.wargame.listSkills({
+          roleId: seat.roleId,
+        })
+
+      if (!result.ok) {
+        actions.setRealSkills([])
+        return
+      }
+
+      actions.setRealSkills(
+        result.value.map((skill) => ({
           name: skill.name,
           description: skill.description,
-          modelInvocable: skill.modelInvocable,
-        })))
-      }
+          modelInvocable: true,
+        })),
+      )
     } catch {
-      // A failed fetch leaves the previous list in place.
+      actions.setRealSkills([])
     }
   }
 
+  knowledgeCatalog.reload = async (roleId: string) => {
+    const actions = getConsoleActions()
+
+    actions.loadKnowledge([])
+
+    try {
+      const knowledge =
+        await ctx.remote.wargame.listKnowledge({ roleId })
+
+      if (knowledge.ok) {
+        actions.loadKnowledge(
+          knowledge.value.map((d) => ({
+            id: d.id,
+            title: d.title,
+            content: d.content,
+            clearance: d.clearance,
+            allow: [],
+            deny: [],
+          })),
+        )
+      }
+    } catch {
+      actions.loadKnowledge([])
+    }
+  }
   // Load real platform data from the host `wargame` Remote namespace into the
   // console store (seats / activities / knowledge / simulators).
   const loadRemoteData = async (actions: ConsoleActions): Promise<void> => {
@@ -80,17 +137,6 @@ export function apply(ctx: ClientContext): void {
       const activities = await ctx.remote.wargame.listActivities()
       if (activities.ok) {
         actions.loadActivities(activities.value.map((a) => ({ id: a.id, name: a.name })))
-      }
-      const knowledge = await ctx.remote.wargame.listKnowledge({ roleId: 'staff' })
-      if (knowledge.ok) {
-        actions.loadKnowledge(knowledge.value.map((d) => ({
-          id: d.id,
-          title: d.title,
-          content: d.content,
-          clearance: d.clearance,
-          allow: [],
-          deny: [],
-        })))
       }
       const simulators = await ctx.remote.wargame.listSimulators()
       if (simulators.ok) {
@@ -147,3 +193,5 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
   }, SkillAttachButton))
 }
+
+

@@ -1,4 +1,4 @@
-/** Console shell: passes the engine state + actions down to each module. */
+﻿/** Console shell: passes the engine state + actions down to each module. */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { createConsoleStore, ConsoleStateShape, ConsoleActions } from './engine.ts'
@@ -154,15 +154,15 @@ function renderModule(
   const businessProps = session ? { state, actions, t, session } : null
   switch (id) {
     case 'activity': return <ActivityModule state={state} actions={actions} t={t} />
-    case 'conversations': return <ConversationModule state={state} actions={actions} t={t} />
+    case 'conversations': return businessProps ? <ConversationModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
     case 'seats': return <SeatModule state={state} actions={actions} t={t} />
-    case 'messages': return <MessageModule state={state} actions={actions} t={t} />
+    case 'messages': return businessProps ? <MessageModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
     case 'taskGroups': return businessProps ? <TaskGroupModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
     case 'workflows': return businessProps ? <WorkflowModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
-    case 'approvals': return <ApprovalModule state={state} actions={actions} t={t} />
+    case 'approvals': return businessProps ? <ApprovalModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
     case 'permissions': return businessProps ? <PermissionModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
     case 'plans': return <PlanModule state={state} actions={actions} t={t} />
-    case 'knowledge': return <KnowledgeModule state={state} actions={actions} t={t} />
+    case 'knowledge': return businessProps ? <KnowledgeModule {...businessProps} /> : <BusinessGate error={businessError} loading={businessLoading} retry={retryBusiness} />
     case 'skills': return <SkillModule state={state} actions={actions} t={t} />
     case 'mcp': return <McpModule state={state} actions={actions} t={t} />
     case 'trajectory': return <TrajectoryModule state={state} actions={actions} t={t} />
@@ -170,3 +170,6 @@ function renderModule(
     case 'metrics': return <MetricsModule state={state} actions={actions} t={t} />
   }
 }
+
+
+

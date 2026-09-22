@@ -1,14 +1,16 @@
-/** Plan comparison: generate 2 plans via CONNECTED mcp services, weighted score, dispatch. */
+﻿/** Plan comparison: generate 2 plans via CONNECTED mcp services, weighted score, dispatch. */
+import { useState } from 'react'
 import type { ConsoleModuleProps } from '../modules.ts'
 import css from './console.module.css'
 
 export function PlanModule({ state, actions, t }: ConsoleModuleProps) {
+  const [notice, setNotice] = useState('')
   if (state.plans.length === 0) {
     return (
       <div>
         <p className={css.empty}>暂无候选方案</p>
         <div className={css.row} style={{ marginTop: 8 }}>
-          <button type="button" className={css.button} onClick={() => { actions.generatePlans() }}>
+          <button type="button" className={css.button} onClick={() => { window.setTimeout(() => actions.generatePlans(), 0) }}>
             生成方案
           </button>
         </div>
@@ -49,10 +51,12 @@ export function PlanModule({ state, actions, t }: ConsoleModuleProps) {
         >
           下发择优方案
         </button>
-        <button type="button" className={css.button} onClick={() => { actions.generatePlans() }}>
+        <button type="button" className={css.button} onClick={() => { window.setTimeout(() => actions.generatePlans(), 0) }}>
           重新生成
         </button>
       </div>
     </div>
   )
 }
+
+

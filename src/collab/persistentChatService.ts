@@ -1,6 +1,8 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import type { Organization } from '../org/organization.js';
+import type { PermissionEngine } from '../permission/permissionEngine.js';
+import type { TaskGroupManager } from '../task/taskGroupManager.js';
 
 export interface Conversation {
   id: string;
@@ -26,35 +28,70 @@ export class PersistentChatService {
   constructor(
     private readonly db: Pool,
     private readonly org: Organization,
+    private readonly permissions: PermissionEngine,
+    private readonly groups: TaskGroupManager,
   ) {}
 
-  async ensureActivityConversation(activityId: string): Promise<Conversation> {
+  async ensureActivityConversation(
+    activityId: string,
+  ): Promise<Conversation> {
     const id = `activity:${activityId}`;
     const existing = await this.getConversation(id);
     if (existing) return existing;
 
     this.org.getActivity(activityId);
-    const members = this.org.allSeats().map((s) => s.id);
-    const creator = this.org.allSeats().find((s) => s.can_approve)?.id ?? members[0];
-    if (!creator) throw new Error('没有可用于创建活动群的席位');
+
+    const members =
+      this.org.allSeats().map((s) => s.id);
+
+    const creator =
+      this.org.allSeats()
+        .find((s) => s.can_approve)?.id ??
+      members[0];
+
+    if (!creator) {
+      throw new Error(
+        '没有可用于创建活动群的席位',
+      );
+    }
 
     const client = await this.db.connect();
+
     try {
       await client.query('BEGIN');
+
       await client.query(
-        `INSERT INTO conversations(id,activity_id,name,kind,created_by_seat_id,created_at)
-         VALUES($1,$2,$3,'activity',$4,$5)
-         ON CONFLICT(id) DO NOTHING`,
-        [id, activityId, `${this.org.getActivity(activityId).name}-活动群`, creator, Date.now()],
+        `INSERT INTO conversations(
+          id,
+          activity_id,
+          name,
+          kind,
+          created_by_seat_id,
+          created_at
+        )
+        VALUES($1,$2,$3,'activity',$4,$5)
+        ON CONFLICT(id) DO NOTHING`,
+        [
+          id,
+          activityId,
+          `${this.org.getActivity(activityId).name}-活动群`,
+          creator,
+          Date.now(),
+        ],
       );
+
       for (const seatId of members) {
         await client.query(
-          `INSERT INTO conversation_members(conversation_id,seat_id)
-           VALUES($1,$2)
-           ON CONFLICT DO NOTHING`,
+          `INSERT INTO conversation_members(
+            conversation_id,
+            seat_id
+          )
+          VALUES($1,$2)
+          ON CONFLICT DO NOTHING`,
           [id, seatId],
         );
       }
+
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -62,6 +99,7 @@ export class PersistentChatService {
     } finally {
       client.release();
     }
+
     return (await this.getConversation(id))!;
   }
 
@@ -70,30 +108,72 @@ export class PersistentChatService {
     name: string;
     kind: 'group' | 'direct';
     memberSeatIds: string[];
+    createdByUserId: string;
     createdBySeatId: string;
   }): Promise<Conversation> {
     this.org.getActivity(input.activityId);
-    const members = [...new Set(input.memberSeatIds)];
-    if (!members.includes(input.createdBySeatId)) members.push(input.createdBySeatId);
-    if (members.length < 2) throw new Error('会话至少需要两个席位');
-    for (const seatId of members) this.org.getSeat(seatId);
+
+    const members =
+      [...new Set(input.memberSeatIds)];
+
+    if (!members.includes(input.createdBySeatId)) {
+      members.push(input.createdBySeatId);
+    }
+
+    if (members.length < 2) {
+      throw new Error(
+        '会话至少需要两个席位',
+      );
+    }
+
+    for (const seatId of members) {
+      this.org.getSeat(seatId);
+    }
+
+    this.permissions.assert({
+      userId: input.createdByUserId,
+      seatId: input.createdBySeatId,
+      activityId: input.activityId,
+      action: 'message.send',
+    });
+
+    this.assertCrossGroupAccess(
+      {
+        userId: input.createdByUserId,
+        seatId: input.createdBySeatId,
+        activityId: input.activityId,
+      },
+      members,
+    );
 
     const conversation: Conversation = {
       id: randomUUID(),
       activityId: input.activityId,
-      name: input.name.trim() || '未命名会话',
+      name:
+        input.name.trim() ||
+        '未命名会话',
       kind: input.kind,
       memberSeatIds: members,
-      createdBySeatId: input.createdBySeatId,
+      createdBySeatId:
+        input.createdBySeatId,
       createdAt: Date.now(),
     };
 
     const client = await this.db.connect();
+
     try {
       await client.query('BEGIN');
+
       await client.query(
-        `INSERT INTO conversations(id,activity_id,name,kind,created_by_seat_id,created_at)
-         VALUES($1,$2,$3,$4,$5,$6)`,
+        `INSERT INTO conversations(
+          id,
+          activity_id,
+          name,
+          kind,
+          created_by_seat_id,
+          created_at
+        )
+        VALUES($1,$2,$3,$4,$5,$6)`,
         [
           conversation.id,
           conversation.activityId,
@@ -103,12 +183,23 @@ export class PersistentChatService {
           conversation.createdAt,
         ],
       );
-      for (const seatId of members) {
+
+      for (
+        const seatId of conversation.memberSeatIds
+      ) {
         await client.query(
-          `INSERT INTO conversation_members(conversation_id,seat_id) VALUES($1,$2)`,
-          [conversation.id, seatId],
+          `INSERT INTO conversation_members(
+            conversation_id,
+            seat_id
+          )
+          VALUES($1,$2)`,
+          [
+            conversation.id,
+            seatId,
+          ],
         );
       }
+
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -116,54 +207,95 @@ export class PersistentChatService {
     } finally {
       client.release();
     }
+
     return conversation;
   }
 
-  async listConversations(activityId: string, seatId: string): Promise<Conversation[]> {
-    await this.ensureActivityConversation(activityId);
+  async listConversations(
+    activityId: string,
+    seatId: string,
+  ): Promise<Conversation[]> {
+    await this.ensureActivityConversation(
+      activityId,
+    );
+
     const { rows } = await this.db.query(
-      `SELECT c.id,c.activity_id,c.name,c.kind,c.created_by_seat_id,c.created_at,
-              COALESCE(array_agg(cm2.seat_id ORDER BY cm2.seat_id), '{}') AS members
-       FROM conversations c
-       JOIN conversation_members mine
-         ON mine.conversation_id=c.id AND mine.seat_id=$2
-       JOIN conversation_members cm2
-         ON cm2.conversation_id=c.id
-       WHERE c.activity_id=$1
-       GROUP BY c.id
-       ORDER BY c.created_at,c.id`,
+      `SELECT
+        c.id,
+        c.activity_id,
+        c.name,
+        c.kind,
+        c.created_by_seat_id,
+        c.created_at,
+        COALESCE(
+          array_agg(
+            cm2.seat_id
+            ORDER BY cm2.seat_id
+          ),
+          '{}'
+        ) AS members
+      FROM conversations c
+      JOIN conversation_members mine
+        ON mine.conversation_id=c.id
+        AND mine.seat_id=$2
+      JOIN conversation_members cm2
+        ON cm2.conversation_id=c.id
+      WHERE c.activity_id=$1
+      GROUP BY c.id
+      ORDER BY c.created_at,c.id`,
       [activityId, seatId],
     );
+
     return rows.map((r) => ({
       id: r.id,
       activityId: r.activity_id,
       name: r.name,
       kind: r.kind,
       memberSeatIds: r.members,
-      createdBySeatId: r.created_by_seat_id,
+      createdBySeatId:
+        r.created_by_seat_id,
       createdAt: Number(r.created_at),
     }));
   }
 
-  async getConversation(id: string): Promise<Conversation | undefined> {
+  async getConversation(
+    id: string,
+  ): Promise<Conversation | undefined> {
     const { rows } = await this.db.query(
-      `SELECT c.id,c.activity_id,c.name,c.kind,c.created_by_seat_id,c.created_at,
-              COALESCE(array_agg(cm.seat_id ORDER BY cm.seat_id), '{}') AS members
-       FROM conversations c
-       LEFT JOIN conversation_members cm ON cm.conversation_id=c.id
-       WHERE c.id=$1
-       GROUP BY c.id`,
+      `SELECT
+        c.id,
+        c.activity_id,
+        c.name,
+        c.kind,
+        c.created_by_seat_id,
+        c.created_at,
+        COALESCE(
+          array_agg(
+            cm.seat_id
+            ORDER BY cm.seat_id
+          ),
+          '{}'
+        ) AS members
+      FROM conversations c
+      LEFT JOIN conversation_members cm
+        ON cm.conversation_id=c.id
+      WHERE c.id=$1
+      GROUP BY c.id`,
       [id],
     );
+
     const r = rows[0];
+
     if (!r) return undefined;
+
     return {
       id: r.id,
       activityId: r.activity_id,
       name: r.name,
       kind: r.kind,
       memberSeatIds: r.members,
-      createdBySeatId: r.created_by_seat_id,
+      createdBySeatId:
+        r.created_by_seat_id,
       createdAt: Number(r.created_at),
     };
   }
@@ -173,23 +305,45 @@ export class PersistentChatService {
     seatId: string,
     limit = 100,
   ): Promise<ChatMessage[]> {
-    await this.assertMember(conversationId, seatId);
-    const { rows } = await this.db.query(
-      `SELECT id,conversation_id,activity_id,sender_user_id,sender_seat_id,content,created_at
-       FROM chat_messages
-       WHERE conversation_id=$1
-       ORDER BY created_at DESC
-       LIMIT $2`,
-      [conversationId, Math.min(Math.max(limit, 1), 300)],
+    await this.assertMember(
+      conversationId,
+      seatId,
     );
+
+    const { rows } = await this.db.query(
+      `SELECT
+        id,
+        conversation_id,
+        activity_id,
+        sender_user_id,
+        sender_seat_id,
+        content,
+        created_at
+      FROM chat_messages
+      WHERE conversation_id=$1
+      ORDER BY created_at DESC
+      LIMIT $2`,
+      [
+        conversationId,
+        Math.min(
+          Math.max(limit, 1),
+          300,
+        ),
+      ],
+    );
+
     return rows.reverse().map((r) => ({
       id: r.id,
-      conversationId: r.conversation_id,
+      conversationId:
+        r.conversation_id,
       activityId: r.activity_id,
-      senderUserId: r.sender_user_id,
-      senderSeatId: r.sender_seat_id,
+      senderUserId:
+        r.sender_user_id,
+      senderSeatId:
+        r.sender_seat_id,
       content: r.content,
-      createdAt: Number(r.created_at),
+      createdAt:
+        Number(r.created_at),
     }));
   }
 
@@ -199,24 +353,73 @@ export class PersistentChatService {
     seatId: string;
     content: string;
   }): Promise<ChatMessage> {
-    const conversation = await this.assertMember(input.conversationId, input.seatId);
-    const content = input.content.trim();
-    if (!content) throw new Error('消息不能为空');
-    if (content.length > 10_000) throw new Error('消息过长');
+    const conversation =
+      await this.assertMember(
+        input.conversationId,
+        input.seatId,
+      );
+
+    const content =
+      input.content.trim();
+
+    if (!content) {
+      throw new Error(
+        '消息不能为空',
+      );
+    }
+
+    if (content.length > 10_000) {
+      throw new Error(
+        '消息过长',
+      );
+    }
+
+    this.permissions.assert({
+      userId: input.userId,
+      seatId: input.seatId,
+      activityId:
+        conversation.activityId,
+      action: 'message.send',
+    });
+
+    // 活动群是全活动公共频道，不作为跨任务组私聊处理。
+    if (conversation.kind !== 'activity') {
+      this.assertCrossGroupAccess(
+        {
+          userId: input.userId,
+          seatId: input.seatId,
+          activityId:
+            conversation.activityId,
+        },
+        conversation.memberSeatIds,
+      );
+    }
 
     const message: ChatMessage = {
       id: randomUUID(),
-      conversationId: conversation.id,
-      activityId: conversation.activityId,
-      senderUserId: input.userId,
-      senderSeatId: input.seatId,
+      conversationId:
+        conversation.id,
+      activityId:
+        conversation.activityId,
+      senderUserId:
+        input.userId,
+      senderSeatId:
+        input.seatId,
       content,
       createdAt: Date.now(),
     };
+
     await this.db.query(
       `INSERT INTO chat_messages(
-        id,conversation_id,activity_id,sender_user_id,sender_seat_id,content,created_at
-       ) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        id,
+        conversation_id,
+        activity_id,
+        sender_user_id,
+        sender_seat_id,
+        content,
+        created_at
+      )
+      VALUES($1,$2,$3,$4,$5,$6,$7)`,
       [
         message.id,
         message.conversationId,
@@ -227,15 +430,126 @@ export class PersistentChatService {
         message.createdAt,
       ],
     );
+
     return message;
   }
 
-  private async assertMember(conversationId: string, seatId: string): Promise<Conversation> {
-    const conversation = await this.getConversation(conversationId);
-    if (!conversation) throw new Error(`会话不存在: ${conversationId}`);
-    if (!conversation.memberSeatIds.includes(seatId)) {
-      throw new Error(`席位 ${seatId} 不属于会话 ${conversationId}`);
+  private groupIdsForSeat(
+    activityId: string,
+    seatId: string,
+  ): string[] {
+    return this.groups
+      .groupsForActivity(activityId)
+      .filter((g) =>
+        g.memberSeatIds.includes(seatId),
+      )
+      .map((g) => g.id);
+  }
+
+  private assertCrossGroupAccess(
+    ctx: {
+      userId: string;
+      seatId: string;
+      activityId: string;
+    },
+    memberSeatIds: string[],
+  ): void {
+    const sourceGroups =
+      this.groupIdsForSeat(
+        ctx.activityId,
+        ctx.seatId,
+      );
+
+    for (const targetSeatId of memberSeatIds) {
+      if (targetSeatId === ctx.seatId) {
+        continue;
+      }
+
+      const targetGroups =
+        this.groupIdsForSeat(
+          ctx.activityId,
+          targetSeatId,
+        );
+
+      // 只有双方都属于任务组，
+      // 且没有任何共同任务组时，
+      // 才算真正的“跨组通信”。
+      if (
+        sourceGroups.length === 0 ||
+        targetGroups.length === 0
+      ) {
+        continue;
+      }
+
+      const sameGroup =
+        targetGroups.some((id) =>
+          sourceGroups.includes(id),
+        );
+
+      if (sameGroup) {
+        continue;
+      }
+
+      let allowed = false;
+
+      for (const targetGroupId of targetGroups) {
+        const decision =
+          this.permissions.check({
+            userId: ctx.userId,
+            seatId: ctx.seatId,
+            activityId: ctx.activityId,
+            action:
+              'message.cross_group',
+            targetGroupId,
+          });
+
+        if (decision.allowed) {
+          allowed = true;
+          break;
+        }
+      }
+
+      if (!allowed) {
+        // 再执行一次 assert，
+        // 让调用方得到标准 PermissionDenied。
+        this.permissions.assert({
+          userId: ctx.userId,
+          seatId: ctx.seatId,
+          activityId: ctx.activityId,
+          action:
+            'message.cross_group',
+          targetGroupId:
+            targetGroups[0],
+        });
+      }
     }
+  }
+
+  private async assertMember(
+    conversationId: string,
+    seatId: string,
+  ): Promise<Conversation> {
+    const conversation =
+      await this.getConversation(
+        conversationId,
+      );
+
+    if (!conversation) {
+      throw new Error(
+        `会话不存在: ${conversationId}`,
+      );
+    }
+
+    if (
+      !conversation.memberSeatIds.includes(
+        seatId,
+      )
+    ) {
+      throw new Error(
+        `席位 ${seatId} 不属于会话 ${conversationId}`,
+      );
+    }
+
     return conversation;
   }
 }

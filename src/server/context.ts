@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+﻿import { join } from 'node:path';
 import { loadSeatsConfig, loadSkillsConfig, loadSimulatorsConfig } from '../config/load.js';
 import { Organization } from '../org/organization.js';
 import { SkillRegistry } from '../skills/skillRegistry.js';
@@ -85,7 +85,7 @@ export async function buildServerContext(
   const repos = new PostgresRepositories(db.pool);
   const authRepo = new PostgresAuthRepository(db.pool);
   const auth = new AuthService(authRepo);
-  const chat = new PersistentChatService(db.pool, org);
+  const chat = new PersistentChatService(db.pool, org, permissions, taskGroups);
 
   const persistentIdentities = new PersistentIdentityService(identities, repos);
   const persistentTaskGroups = new PersistentTaskGroupService(taskGroups, repos);
@@ -126,3 +126,4 @@ export async function buildServerContext(
     persistentPlans,
   };
 }
+
