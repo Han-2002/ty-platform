@@ -297,3 +297,19 @@ export interface GeneratePlansValue {
   plans: PlanResultView[];
   report: string;
 }
+
+export interface AgentSeatContextSync {
+  sessionId: string;
+  token: string;
+  userId: string;
+  userName: string;
+  activityId: string;
+  activityName: string;
+  seatId: string;
+  seatName: string;
+  roleId: string;
+  roleName: string;
+  clearance: number;
+  canDispatch: boolean;
+  canApprove: boolean;
+}

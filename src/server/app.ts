@@ -308,6 +308,98 @@ export async function startApiServer(
         );
       }
 
+      // ---------- Agent seat context / permission ----------
+      if (req.method === 'GET' && path === '/api/agent-context') {
+        const a = await businessActor(req, ctx);
+        const seat = ctx.org.getSeat(a.seatId);
+        const activity = ctx.org.getActivity(a.activityId);
+
+        return ok(res, {
+          userId: a.userId,
+          userName: a.userName,
+          activityId: a.activityId,
+          activityName: activity.name,
+          seatId: a.seatId,
+          seatName: seat.name,
+          roleId: seat.role.id,
+          roleName: seat.role.name,
+          clearance: seat.clearance,
+          canDispatch: seat.can_dispatch,
+          canApprove: seat.can_approve,
+          activeGrants: ctx.permissions
+            .activeGrantsFor(a.userId, a.seatId, a.activityId)
+            .map((g) => ({
+              id: g.id,
+              action: g.action,
+              resourceId: g.resourceId,
+              targetGroupId: g.targetGroupId,
+              expiresAt: g.expiresAt,
+            })),
+        });
+      }
+
+      if (req.method === 'POST' && path === '/api/permissions/check') {
+        const a = await businessActor(req, ctx);
+
+        const data = await body<{
+          action:
+            | 'knowledge.read'
+            | 'message.send'
+            | 'message.cross_group'
+            | 'task.dispatch'
+            | 'workflow.propose_change'
+            | 'workflow.approve_change'
+            | 'plan.submit'
+            | 'plan.approve'
+            | 'simulation.run'
+            | 'plan.dispatch'
+            | 'seat.assign';
+          resourceId?: string;
+          resourceClearance?: number;
+          targetGroupId?: string;
+          groupId?: string;
+          taskId?: string;
+        }>(req);
+
+        const allowedActions = new Set([
+          'knowledge.read',
+          'message.send',
+          'message.cross_group',
+          'task.dispatch',
+          'workflow.propose_change',
+          'workflow.approve_change',
+          'plan.submit',
+          'plan.approve',
+          'simulation.run',
+          'plan.dispatch',
+          'seat.assign',
+        ]);
+
+        if (!allowedActions.has(data.action)) {
+          throw new Error(`未知权限动作: ${String(data.action)}`);
+        }
+
+        const decision = ctx.permissions.check({
+          userId: a.userId,
+          seatId: a.seatId,
+          activityId: a.activityId,
+          action: data.action,
+          resourceId: data.resourceId,
+          resourceClearance: data.resourceClearance,
+          targetGroupId: data.targetGroupId,
+          groupId: data.groupId,
+          taskId: data.taskId,
+          actorType: 'agent',
+        });
+
+        await ctx.persistentAudit.flush();
+
+        return ok(res, {
+          action: data.action,
+          seatId: a.seatId,
+          ...decision,
+        });
+      }
       // ---------- Identity ----------
       if (req.method === 'GET' && path === '/api/users') {
         return ok(res, ctx.identities.allUsers());
@@ -913,6 +1005,7 @@ export async function startApiServer(
     },
   };
 }
+
 
 
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Wargaming platform host service: owns the Platform runtime and exposes its
  * business face over the `wargame` Typert Remote namespace, so the browser
  * `ui-wargame` console can drive real seats / knowledge / skills / tasks /
@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { Platform } from './platform.ts'
+import { AgentSeatBridge } from './agentSeatBridge.ts'
+import type { AgentSeatContextSync } from './types.ts'
 import type { Seat } from './org/organization.ts'
 import type {
   ActivityView,
@@ -46,9 +48,10 @@ function packageRoot(): string {
 
 /** Host service backing `ctx.remote.wargame`. */
 export class WargamePlatform extends TypertRemoteService {
-  static inject = ['typert']
+  static inject = ['typert', 'systemPrompt', 'tools']
 
   private readonly platform: Platform
+  private readonly agentSeatBridge: AgentSeatBridge
 
   constructor(ctx: Context) {
     super(ctx, 'wargamePlatform', { namespace: 'wargame' })
@@ -61,6 +64,17 @@ export class WargamePlatform extends TypertRemoteService {
       runtimeDir,
       personasDir: join(root, 'config', 'personas'),
     })
+
+    this.agentSeatBridge =
+      new AgentSeatBridge(ctx, this.platform)
+  }
+
+  @Remote
+  setAgentSeatContext(
+    request: AgentSeatContextSync,
+  ): { synced: true } {
+    this.agentSeatBridge.sync(request)
+    return { synced: true }
   }
 
   // ---------- seats / roles / activities ----------
@@ -313,3 +327,5 @@ export class WargamePlatform extends TypertRemoteService {
 }
 
 export default WargamePlatform
+
+

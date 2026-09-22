@@ -145,6 +145,24 @@ const _deepseek_ai_dsh_wargame_platform_wargame_sendInstruction_result$schema = 
   'assignedSeatId': z.string().optional(),
   'status': z.union([z.literal("pending"), z.literal("executing"), z.literal("done")]),
 })
+const _deepseek_ai_dsh_wargame_platform_wargame_setAgentSeatContext_parameter_0$schema = z.object({
+  'sessionId': z.string(),
+  'token': z.string(),
+  'userId': z.string(),
+  'userName': z.string(),
+  'activityId': z.string(),
+  'activityName': z.string(),
+  'seatId': z.string(),
+  'seatName': z.string(),
+  'roleId': z.string(),
+  'roleName': z.string(),
+  'clearance': z.number(),
+  'canDispatch': z.boolean(),
+  'canApprove': z.boolean(),
+})
+const _deepseek_ai_dsh_wargame_platform_wargame_setAgentSeatContext_result$schema = z.object({
+  'synced': z.literal(true),
+})
 const _deepseek_ai_dsh_wargame_platform_wargame_submitOutput_parameter_0$schema = z.object({
   'taskId': z.string(),
   'seatId': z.string(),
@@ -184,7 +202,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform/types#OutputView',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_approveOutput_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":210,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":224,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/confirmPlan',
@@ -199,7 +217,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/confirmPlan:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_confirmPlan_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":252,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":266,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/generatePlans',
@@ -224,7 +242,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform/types#GeneratePlansValue',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_generatePlans_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":224,"column":9},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":238,"column":9},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listActivities',
@@ -239,7 +257,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listActivities:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listActivities_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":89,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":103,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listConversations',
@@ -254,7 +272,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listConversations:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listConversations_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":146,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":160,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listKnowledge',
@@ -279,7 +297,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listKnowledge:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listKnowledge_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":100,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":114,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listMessages',
@@ -304,7 +322,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listMessages:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listMessages_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":157,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":171,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listPendingOutputs',
@@ -319,7 +337,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listPendingOutputs:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listPendingOutputs_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":188,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":202,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listRoles',
@@ -334,7 +352,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listRoles:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listRoles_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":75,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":89,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listSeats',
@@ -349,7 +367,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listSeats:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listSeats_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":69,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":83,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listSimulators',
@@ -364,7 +382,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listSimulators:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listSimulators_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":135,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":149,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listSkills',
@@ -389,7 +407,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listSkills:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listSkills_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":114,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":128,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/listTasks',
@@ -404,7 +422,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/listTasks:result',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_listTasks_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":172,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":186,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/rejectOutput',
@@ -429,7 +447,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform/types#OutputView',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_rejectOutput_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":216,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":230,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/sendInstruction',
@@ -454,7 +472,32 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform/types#TaskView',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_sendInstruction_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":193,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":207,"column":3},
+    },
+    {
+      id: '@deepseek-ai/dsh-wargame-platform#wargame/setAgentSeatContext',
+      service: 'wargamePlatform',
+      namespace: 'wargame',
+      method: 'setAgentSeatContext',
+      invocation: { kind: 'direct' },
+      parameters: [
+        {
+          name: 'request',
+          wire: 'request',
+          source: 'json',
+          codec: {
+            mode: 'strict',
+            typeSymbol: '@deepseek-ai/dsh-wargame-platform/types#AgentSeatContextSync',
+            schema: _deepseek_ai_dsh_wargame_platform_wargame_setAgentSeatContext_parameter_0$schema,
+          },
+        },
+      ],
+      result: {
+        mode: 'strict',
+        typeSymbol: '@deepseek-ai/dsh-wargame-platform#wargame/setAgentSeatContext:result',
+        schema: _deepseek_ai_dsh_wargame_platform_wargame_setAgentSeatContext_result$schema,
+      },
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":73,"column":3},
     },
     {
       id: '@deepseek-ai/dsh-wargame-platform#wargame/submitOutput',
@@ -479,7 +522,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: '@deepseek-ai/dsh-wargame-platform/types#OutputView',
         schema: _deepseek_ai_dsh_wargame_platform_wargame_submitOutput_result$schema,
       },
-      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":204,"column":3},
+      sourceLocation: {"file":"packages/platform/wargame-platform/src/index.ts","line":218,"column":3},
     },
   ],
 }

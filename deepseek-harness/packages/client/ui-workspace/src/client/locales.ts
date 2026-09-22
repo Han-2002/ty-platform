@@ -1,4 +1,4 @@
-/**
+﻿/**
  * `workspace` namespace dictionaries: the browsing region (section header,
  * search, tree rows, dialogs) and the pick/add flow. Runtime failure
  * messages (wire error strings) pass through untranslated by policy.
@@ -45,6 +45,8 @@ export const zh = {
   'delete.pending': '正在删除工作区…',
   'menu.fork': '分叉会话',
   'menu.archiveSession': '归档会话',
+  'menu.deleteSession': '删除会话',
+  'delete.session.confirm': '确定删除会话「{name}」吗？删除后将从会话列表中移除。',
   'sessions.count.one': '{n} 个会话',
   'sessions.count.other': '{n} 个会话',
   'actions.workspace.aria': '工作区“{name}”的操作',
@@ -115,6 +117,8 @@ export const en = {
   'delete.pending': 'Deleting workspace…',
   'menu.fork': 'Fork session',
   'menu.archiveSession': 'Archive session',
+  'menu.deleteSession': 'Delete session',
+  'delete.session.confirm': 'Delete session {name}? It will be removed from the session list.',
   'sessions.count.one': '{n} session',
   'sessions.count.other': '{n} sessions',
   'actions.workspace.aria': 'Workspace actions for {name}',
@@ -140,3 +144,6 @@ export const en = {
   'time.years': '{n}y',
   'time.ago': '{t} ago',
 } satisfies Record<WorkspaceKey, string>
+
+
+

@@ -1,10 +1,8 @@
 ﻿/** Plan comparison: generate 2 plans via CONNECTED mcp services, weighted score, dispatch. */
-import { useState } from 'react'
 import type { ConsoleModuleProps } from '../modules.ts'
 import css from './console.module.css'
 
 export function PlanModule({ state, actions, t }: ConsoleModuleProps) {
-  const [notice, setNotice] = useState('')
   if (state.plans.length === 0) {
     return (
       <div>
@@ -58,5 +56,7 @@ export function PlanModule({ state, actions, t }: ConsoleModuleProps) {
     </div>
   )
 }
+
+
 
 
